@@ -190,6 +190,10 @@ class ReflectionController extends Controller
 
         $userInput = $request->input('input');
 
+        if ($this->isPureConversation($userInput)) {
+            return $this->generateConversationResponse($userInput);
+        }
+
         $classification = $this->classifyWithOpenAI($userInput);
 
         if (($classification['status'] ?? null) === 'rejected') {
@@ -446,5 +450,107 @@ RULES:
         }
 
         return $verses;
+    }
+
+    private function isPureConversation(string $input): bool
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post(self::OPENAI_ENDPOINT, [
+            'model' => 'gpt-4o',
+            'temperature' => 0.1,
+            'response_format' => ['type' => 'json_object'],
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => 'Determine if the user input is PURE casual conversation (greeting, small talk, how-are-you, weather, daily chat) with NO connection to emotions, feelings, spirituality, or seeking guidance.
+
+Return JSON: {"is_conversation": true/false}
+
+Rules:
+- is_conversation: true ONLY if the input is purely social/chatty like "hi", "hello", "how are you", "whats up", "good morning", "how was your day", "nice to meet you", where the user is just making conversation and NOT expressing any emotion, feeling, or seeking any guidance.
+- is_conversation: false if the user is expressing ANY emotion, feeling (sad, happy, anxious, grateful, angry, lonely, etc.), or asking about spiritual/religious matters, or seeking help/advice of any kind.
+
+Examples:
+- "hi" → true
+- "how are you" → true
+- "good morning, hows it going" → true
+- "whats up" → true
+- "hey, how was your day" → true
+- "im feeling sad" → false
+- "i need help" → false
+- "thank you Allah" → false
+- "im happy today" → false
+- "hello, can you help me with something" → false
+- "i feel lonely" → false
+- "im anxious about my exam" → false',
+                ],
+                ['role' => 'user', 'content' => $input],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            return false;
+        }
+
+        $body = $response->json();
+        $content = json_decode($body['choices'][0]['message']['content'] ?? '{}', true);
+
+        return ($content['is_conversation'] ?? false) === true;
+    }
+
+    private function generateConversationResponse(string $input): JsonResponse
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post(self::OPENAI_ENDPOINT, [
+            'model' => 'gpt-4o',
+            'temperature' => 0.7,
+            'response_format' => ['type' => 'json_object'],
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => 'You are a warm, professional Islamic companion. Respond to casual conversation politely and professionally. Keep it brief and warm.
+
+Return JSON: {"response": "your response here", "language": "english" or "arabic"}
+
+Rules:
+- Be professional and warm, not overly casual
+- If the user greets in Arabic, respond in Arabic
+- If the user greets in English, respond in English
+- After greeting, gently invite them to share what is on their mind
+- Keep responses to 1-2 sentences maximum
+- Do not include any emojis
+- Do NOT include any Quran verses or religious content
+- This is purely social conversation only',
+                ],
+                ['role' => 'user', 'content' => $input],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            $language = preg_match('/[\x{0600}-\x{06FF}]/u', $input) ? 'arabic' : 'english';
+            $message = $language === 'arabic'
+                ? 'وعليكم السلام ورحمة الله وبركاته. كيف يمكنني مساعدتك اليوم؟'
+                : 'Hello! How can I assist you today?';
+
+            return response()->json([
+                'status' => 'conversation',
+                'message' => $message,
+                'language' => $language,
+            ]);
+        }
+
+        $body = $response->json();
+        $content = json_decode($body['choices'][0]['message']['content'] ?? '{}', true);
+        $language = $content['language'] ?? (preg_match('/[\x{0600}-\x{06FF}]/u', $input) ? 'arabic' : 'english');
+
+        return response()->json([
+            'status' => 'conversation',
+            'message' => $content['response'] ?? ($language === 'arabic' ? 'كيف يمكنني مساعدتك اليوم؟' : 'Hello! How can I assist you today?'),
+            'language' => $language,
+        ]);
     }
 }
