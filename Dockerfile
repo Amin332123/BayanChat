@@ -24,7 +24,7 @@ WORKDIR /var/am_project
 COPY . .
 
 # Install production dependencies (ignoring platform requirements to bypass strict local environment checks)
-RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-scripts
 
 # Expose the port and start the server
 EXPOSE 8000
