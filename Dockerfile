@@ -26,6 +26,13 @@ COPY . .
 # Install production dependencies (ignoring platform requirements to bypass strict local environment checks)
 RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-scripts
 
+# Ensure .env exists and generate app key
+RUN cp .env.example .env \
+    && php artisan key:generate --ansi
+
+# Set permissions for storage and cache
+RUN chmod -R 775 storage bootstrap/cache
+
 # Expose the port and start the server
 EXPOSE 8000
 CMD php artisan serve --host=0.0.0.0 --port=8000
