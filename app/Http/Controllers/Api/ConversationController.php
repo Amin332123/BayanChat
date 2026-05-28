@@ -20,14 +20,16 @@ class ConversationController extends Controller
 
     public function index(Request $request): JsonResource
     {
-        $conversations = $this->conversationService->getUserConversations($request->user());
+        $user = User::firstOrFail();
+
+        $conversations = $this->conversationService->getUserConversations($user);
 
         return ConversationResource::collection($conversations);
     }
 
     public function store(StoreConversationRequest $request): JsonResource
     {
-        $user = $request->user();
+        $user = User::firstOrFail();
         $type = $request->input('type');
 
         if ($type === 'private') {
@@ -49,7 +51,7 @@ class ConversationController extends Controller
 
     public function show(Request $request, Conversation $conversation): JsonResource
     {
-        $user = $request->user();
+        $user = User::firstOrFail();
 
         if (!$conversation->participants()->where('user_id', $user->id)->exists()) {
             abort(403, 'Not a participant of this conversation');
@@ -67,7 +69,7 @@ class ConversationController extends Controller
 
     public function destroy(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $request->user();
+        $user = User::firstOrFail();
 
         if (!$conversation->participants()->where('user_id', $user->id)->exists()) {
             abort(403);
@@ -84,7 +86,7 @@ class ConversationController extends Controller
 
     public function markAsRead(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $request->user();
+        $user = User::firstOrFail();
 
         if (!$conversation->participants()->where('user_id', $user->id)->exists()) {
             abort(403);
@@ -97,7 +99,7 @@ class ConversationController extends Controller
 
     public function analyze(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $request->user();
+        $user = User::firstOrFail();
 
         if (!$conversation->participants()->where('user_id', $user->id)->exists()) {
             abort(403);

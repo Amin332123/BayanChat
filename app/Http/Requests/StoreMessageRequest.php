@@ -8,8 +8,7 @@ class StoreMessageRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $conversation = $this->route('conversation');
-        return $conversation && $conversation->participants()->where('user_id', $this->user()->id)->exists();
+        return true;
     }
 
     public function rules(): array

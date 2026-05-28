@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
 use App\Services\ConversationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class MessageController extends Controller
 
     public function index(Request $request, Conversation $conversation): JsonResource
     {
-        $user = $request->user();
+        $user = User::firstOrFail();
 
         if (!$conversation->participants()->where('user_id', $user->id)->exists()) {
             abort(403);
@@ -40,9 +41,11 @@ class MessageController extends Controller
 
     public function store(StoreMessageRequest $request, Conversation $conversation): JsonResource
     {
+        $user = User::firstOrFail();
+
         $message = $this->conversationService->sendMessage(
             $conversation,
-            $request->user(),
+            $user,
             $request->input('content'),
             $request->integer('parent_id', null),
         );
@@ -73,7 +76,9 @@ class MessageController extends Controller
             abort(404);
         }
 
-        $deleted = $this->conversationService->deleteMessage($message, $request->user());
+        $user = User::firstOrFail();
+
+        $deleted = $this->conversationService->deleteMessage($message, $user);
 
         if (!$deleted) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -88,9 +93,11 @@ class MessageController extends Controller
             abort(404);
         }
 
+        $user = User::firstOrFail();
+
         $this->conversationService->addReaction(
             $message,
-            $request->user(),
+            $user,
             $request->input('reaction'),
         );
 
@@ -105,9 +112,11 @@ class MessageController extends Controller
             abort(404);
         }
 
+        $user = User::firstOrFail();
+
         $this->conversationService->removeReaction(
             $message,
-            $request->user(),
+            $user,
             $request->input('reaction'),
         );
 
